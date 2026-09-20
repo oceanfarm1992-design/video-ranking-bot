@@ -1,0 +1,55 @@
+name: Ranking Video Pipeline
+
+on:
+  schedule:
+    - cron: "0 6  * * *"   # 06:00 UTC — morning  (US East 2am / UK 6am)
+    - cron: "0 11 * * *"   # 11:00 UTC — midday   (US East 7am / UK 11am)
+    - cron: "0 17 * * *"   # 17:00 UTC — afternoon (US East 1pm / UK 5pm)
+    - cron: "0 22 * * *"   # 22:00 UTC — evening  (US East 6pm / UK 10pm)
+  workflow_dispatch:        # Also runnable manually from the Actions tab
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install system dependencies (ffmpeg)
+        run: sudo apt-get install -y ffmpeg
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write TikTok cookies (if secret is set)
+        if: ${{ secrets.TIKTOK_COOKIES != '' }}
+        env:
+          TIKTOK_COOKIES: ${{ secrets.TIKTOK_COOKIES }}
+        run: printf '%s' "$TIKTOK_COOKIES" > tiktok_cookies.txt
+
+      - name: Run pipeline
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
+          BUFFER_PROFILE_IDS: ${{ secrets.BUFFER_PROFILE_IDS }}
+          TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
+          TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+        run: python main.py
+
+      - name: Upload output video as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ranking-video-${{ github.run_number }}
+          path: final_ranking_video.mp4
+          retention-days: 7

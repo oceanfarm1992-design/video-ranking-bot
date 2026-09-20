@@ -1,0 +1,19 @@
+# Secrets
+.env
+tiktok_cookies.txt
+
+# Generated output
+downloads/
+final_ranking_video.mp4
+rankings.json
+preview_music.wav
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Node
+node_modules/

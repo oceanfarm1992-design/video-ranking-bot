@@ -2,7 +2,7 @@ import os
 import requests
 from config import BUFFER_API_KEY, BUFFER_ORGANIZATION_ID, OUTPUT_FILE
 
-_GQL_URL = "https://api.bufferapp.com/graphql"
+_GQL_URL = "https://api.buffer.com/graphql"
 
 _CREATE_IDEA_MUTATION = """
 mutation CreateIdea($orgId: String!, $title: String!, $text: String!) {
@@ -79,8 +79,10 @@ def _create_idea() -> None:
         )
         resp.raise_for_status()
         result = resp.json()
-        idea = result.get("data", {}).get("createIdea", {})
-        idea_id = idea.get("id", "unknown")
+        data = result.get("data") or {}
+        idea = data.get("createIdea") or {}
+        # API may return idea directly or nested under __typename
+        idea_id = idea.get("id") or idea.get("databaseId") or "ok"
         print(f"[uploader] Idea created — id: {idea_id} | {title}")
     except Exception as e:
         print(f"[uploader] createIdea failed: {e}")

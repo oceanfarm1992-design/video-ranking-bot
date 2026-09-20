@@ -43,7 +43,6 @@ TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")
 # Rumble
 RUMBLE_MAX_FETCH = 20
 
-# Buffer — profile IDs can also be set via BUFFER_PROFILE_IDS env var (comma-separated)
+# Buffer
 BUFFER_API_KEY = os.getenv("BUFFER_API_KEY")
-_ids_env = os.getenv("BUFFER_PROFILE_IDS", "")
-BUFFER_PROFILE_IDS: list[str] = [i.strip() for i in _ids_env.split(",") if i.strip()]
+BUFFER_ORGANIZATION_ID = os.getenv("BUFFER_ORGANIZATION_ID", "6aafc6f8778120e5ae005e89")

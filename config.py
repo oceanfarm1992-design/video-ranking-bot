@@ -23,8 +23,19 @@ YOUTUBE_CATEGORY_ID = "23"  # Comedy
 YOUTUBE_REGION = "US"
 YOUTUBE_MAX_FETCH = 30
 
-# TikTok
-TIKTOK_KEYWORDS = ["funny", "comedy", "fail"]
+# TikTok — seed keywords for Creator Search Insights lookup
+TIKTOK_KEYWORDS = [
+    "funny",
+    "comedy",
+    "fail",
+    "try not to laugh",
+    "funny moments",
+    "comedy skits",
+    "fails compilation",
+    "hilarious",
+    "prank",
+    "bloopers",
+]
 TIKTOK_MAX_FETCH = 30
 
 # Reddit — create a free app at https://www.reddit.com/prefs/apps (script type)

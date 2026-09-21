@@ -120,7 +120,7 @@ RUMBLE_MAX_FETCH = 20
 BUFFER_API_KEY = os.getenv("BUFFER_API_KEY")
 BUFFER_ORGANIZATION_ID = os.getenv("BUFFER_ORGANIZATION_ID") or "6aafc6f8778120e5ae005e89"
 # ShareMode: addToQueue | shareNext | shareNow | customScheduled
-BUFFER_SHARE_MODE = os.getenv("BUFFER_SHARE_MODE") or "addToQueue"
+BUFFER_SHARE_MODE = os.getenv("BUFFER_SHARE_MODE") or "shareNow"
 
 # Video hosting — Buffer must fetch the video from a public URL.
 # Uses GitHub Releases on this repo (must be a public repo).

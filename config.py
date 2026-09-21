@@ -26,6 +26,16 @@ CONTENT_QUERIES = [
     "funny dogs",
     "funny cats",
     "funny animal fails",
+    "funny dogs compilation",
+    "funny cats reaction",
+    "funny talking parrot",
+    "funny farm animal moments",
+    "funny wildlife moments",
+    "funny pet fails",
+    "funny animal noises",
+    "funny horse donkey videos",
+    "cute funny baby animals",
+    "viral funny animal reels",
     # pranking funny
     "prank gone wrong",
     "prank compilation",
@@ -56,6 +66,7 @@ EXCLUDE_TITLE_KEYWORDS = [
 INCLUDE_TITLE_KEYWORDS = [
     # funny animals
     "animal", "dog", "dogs", "puppy", "cat", "cats", "kitten", "pet",
+    "wildlife", "bird", "parrot", "horse", "donkey", "farm animal",
     # pranking funny
     "prank",
     # funny movement / physical comedy

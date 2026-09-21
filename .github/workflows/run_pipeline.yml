@@ -2,16 +2,15 @@ name: Ranking Video Pipeline
 
 on:
   schedule:
-    - cron: "0 6  * * *"   # 06:00 UTC — morning  (US East 2am / UK 6am)
-    - cron: "0 11 * * *"   # 11:00 UTC — midday   (US East 7am / UK 11am)
-    - cron: "0 17 * * *"   # 17:00 UTC — afternoon (US East 1pm / UK 5pm)
-    - cron: "0 22 * * *"   # 22:00 UTC — evening  (US East 6pm / UK 10pm)
+    - cron: "0 8  * * *"   # 08:00 UTC — morning   (US East 4am / UK 8am)
+    - cron: "0 15 * * *"   # 15:00 UTC — afternoon (US East 11am / UK 3pm)
+    - cron: "0 21 * * *"   # 21:00 UTC — evening   (US East 5pm / UK 9pm)
   workflow_dispatch:        # Also runnable manually from the Actions tab
 
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45   # Demucs (torch install + CPU inference per clip) adds real time
     permissions:
       contents: write   # needed to publish the video as a release asset
 

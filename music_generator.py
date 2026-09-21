@@ -205,6 +205,53 @@ def generate(duration_sec: float, output_path: str) -> None:
     print(f"[music] Generated {duration_sec:.1f}s comedy music → {output_path}")
 
 
+# ── Synthesized laugh stinger ────────────────────────────────────────────────
+
+def generate_laugh(output_path: str, num_bursts: int = 5, seed: int = 7) -> None:
+    """Generate a cartoonish 'ha-ha-ha' laugh stinger via pure waveform
+    synthesis (buzzy glottal pulse + vowel formants + light noise, no
+    samples), for use as an end-of-clip punctuation sting."""
+    from pathlib import Path
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+
+    rng = np.random.default_rng(seed)
+    bursts: list[np.ndarray] = []
+
+    for i in range(num_bursts):
+        dur = rng.uniform(0.11, 0.17)
+        n = int(dur * SAMPLE_RATE)
+        t = np.arange(n) / SAMPLE_RATE
+
+        # Pitch rises through the first bursts, falls off at the end —
+        # mimics the natural contour of a real laugh.
+        arc = np.sin(np.pi * (i + 0.5) / num_bursts)
+        base_pitch = 220 + 90 * arc + rng.uniform(-10, 10)
+        pitch_env = base_pitch * (1 + 0.15 * np.sin(2 * np.pi * 18 * t))
+        phase = np.cumsum(pitch_env) / SAMPLE_RATE
+        glottal = np.sign(np.sin(2 * np.pi * phase))
+
+        formants = (
+            0.60 * np.sin(2 * np.pi * 700 * t)
+            + 0.30 * np.sin(2 * np.pi * 1200 * t)
+            + 0.15 * np.sin(2 * np.pi * 2600 * t)
+        )
+        breath = rng.uniform(-1, 1, n) * 0.08
+
+        wave = glottal * 0.5 + formants * 0.35 + breath
+        env = _adsr(n, a=0.01, d=0.03, sustain=0.7, r=0.06)
+        bursts.append(wave * env)
+        bursts.append(np.zeros(int(rng.uniform(0.03, 0.08) * SAMPLE_RATE)))
+
+    laugh = np.concatenate(bursts)
+    peak = np.max(np.abs(laugh))
+    if peak > 0:
+        laugh = laugh / peak * 0.8
+
+    wavfile.write(output_path, SAMPLE_RATE, (laugh * 32767).astype(np.int16))
+    print(f"[music] Generated {len(laugh) / SAMPLE_RATE:.2f}s laugh stinger → {output_path}")
+
+
 if __name__ == "__main__":
     generate(30.0, "preview_music.wav")
-    print("Preview saved: preview_music.wav")
+    generate_laugh("preview_laugh.wav")
+    print("Preview saved: preview_music.wav, preview_laugh.wav")

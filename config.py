@@ -14,8 +14,53 @@ OUTPUT_FILE = str(BASE_DIR / "final_ranking_video.mp4")
 FACEBOOK_URLS_FILE = str(BASE_DIR / "facebook_urls.txt")
 TIKTOK_BRIDGE_SCRIPT = str(BASE_DIR / "tiktok_bridge.js")
 
-TOP_N = 10
-CLIP_DURATION_SEC = 10
+TOP_N = 5
+CLIP_DURATION_SEC = 13  # 5 clips x 13s = 65s total, inside Reels' 90s cap
+
+# Three focused comedy categories, shared across fetchers that take a
+# search query (YouTube, Dailymotion). Replaces vague single-word queries
+# like "hilarious" that pulled in unrelated long-form content.
+CONTENT_QUERIES = [
+    # funny animals
+    "funny animals",
+    "funny dogs",
+    "funny cats",
+    "funny animal fails",
+    # pranking funny
+    "prank gone wrong",
+    "prank compilation",
+    "funny prank",
+    # funny movement (physical comedy / fails)
+    "epic fail compilation",
+    "clumsy fails",
+    "funny dance fails",
+]
+
+# Title keywords that disqualify a candidate regardless of engagement —
+# filters out movies, news, tutorials etc. that ranked well but aren't
+# actually comedy clips (e.g. a "Full Japanese Romantic Movie" that once
+# ranked #6 purely because it matched a bare "hilarious" search).
+EXCLUDE_TITLE_KEYWORDS = [
+    "full movie", "full film", "full episode", "documentary",
+    "trailer", "romantic movie", "drama", "news", "tutorial",
+    "review", "unboxing", "vlog", "walkthrough", "let's play",
+    "part 1", "part 2", "part 3", "part 4", "part 5", "part 6",
+    "part 7", "part 8", "part 9", "episode", "ep.",
+    "fanfic", "fanfics",
+]
+
+# A candidate must match at least one of these to be considered — keeps
+# the ranking on the 3 requested categories (animals / pranks / physical
+# comedy) instead of whatever else rides in on the generic YouTube
+# "trending Comedy" chart (e.g. TV-series clips, anime meme videos).
+INCLUDE_TITLE_KEYWORDS = [
+    # funny animals
+    "animal", "dog", "dogs", "puppy", "cat", "cats", "kitten", "pet",
+    # pranking funny
+    "prank",
+    # funny movement / physical comedy
+    "fail", "fails", "fall", "falling", "clumsy", "trip", "slip", "stunt",
+]
 
 # YouTube
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
@@ -25,23 +70,29 @@ YOUTUBE_MAX_FETCH = 30
 
 # TikTok — seed keywords for Creator Search Insights lookup
 TIKTOK_KEYWORDS = [
-    "funny",
-    "comedy",
-    "fail",
-    "try not to laugh",
-    "funny moments",
-    "comedy skits",
-    "fails compilation",
-    "hilarious",
+    "funny animals",
+    "funny dogs",
+    "funny cats",
     "prank",
-    "bloopers",
+    "prank gone wrong",
+    "fails compilation",
+    "clumsy fails",
+    "try not to laugh",
 ]
 TIKTOK_MAX_FETCH = 30
 
 # Reddit — create a free app at https://www.reddit.com/prefs/apps (script type)
 REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
 REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")
-REDDIT_SUBREDDITS = ["funny", "PublicFreakout", "instant_regret", "WatchPeopleDieInside", "PeopleFalling"]
+REDDIT_SUBREDDITS = [
+    "funny",
+    "PublicFreakout",
+    "instant_regret",
+    "PeopleFalling",
+    "AnimalsBeingDerps",
+    "funnyanimals",
+    "perfectlycutscreams",
+]
 REDDIT_MAX_FETCH = 30
 
 # Dailymotion

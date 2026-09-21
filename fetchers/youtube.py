@@ -1,5 +1,11 @@
 from googleapiclient.discovery import build
-from config import YOUTUBE_API_KEY, YOUTUBE_CATEGORY_ID, YOUTUBE_REGION, YOUTUBE_MAX_FETCH
+from config import (
+    YOUTUBE_API_KEY,
+    YOUTUBE_CATEGORY_ID,
+    YOUTUBE_REGION,
+    YOUTUBE_MAX_FETCH,
+    CONTENT_QUERIES,
+)
 
 
 def fetch() -> list[dict]:
@@ -8,7 +14,7 @@ def fetch() -> list[dict]:
 
     _fetch_chart(youtube, candidates)
 
-    for query in ["funny moments", "comedy fail", "hilarious"]:
+    for query in CONTENT_QUERIES:
         _fetch_search(youtube, query, candidates)
 
     return list(candidates.values())

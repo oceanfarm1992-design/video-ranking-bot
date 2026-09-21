@@ -1,14 +1,13 @@
 import requests
-from config import DAILYMOTION_MAX_FETCH
+from config import DAILYMOTION_MAX_FETCH, CONTENT_QUERIES
 
 _API = "https://api.dailymotion.com/videos"
 _FIELDS = "id,title,owner.screenname,views_total,likes_total,url"
-_QUERIES = ["funny moments", "comedy fail", "hilarious"]
 
 
 def fetch() -> list[dict]:
     candidates: dict[str, dict] = {}
-    for query in _QUERIES:
+    for query in CONTENT_QUERIES:
         if len(candidates) >= DAILYMOTION_MAX_FETCH:
             break
         _search(query, candidates)

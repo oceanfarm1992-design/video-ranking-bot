@@ -1,9 +1,27 @@
 import json
-from config import TOP_N, RANKINGS_FILE
+from config import (
+    TOP_N,
+    RANKINGS_FILE,
+    EXCLUDE_TITLE_KEYWORDS,
+    INCLUDE_TITLE_KEYWORDS,
+)
 from seeds_analyzer import load_viral_profile, viral_boost
 
 
+def _is_relevant(video: dict) -> bool:
+    title = video.get("title", "").lower()
+    if any(kw in title for kw in EXCLUDE_TITLE_KEYWORDS):
+        return False
+    return any(kw in title for kw in INCLUDE_TITLE_KEYWORDS)
+
+
 def rank(all_videos: list[dict]) -> list[dict]:
+    before = len(all_videos)
+    all_videos = [v for v in all_videos if _is_relevant(v)]
+    dropped = before - len(all_videos)
+    if dropped:
+        print(f"[ranker] Filtered out {dropped} non-comedy candidates by title")
+
     profile = load_viral_profile()
 
     by_platform: dict[str, list[dict]] = {}

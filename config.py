@@ -59,3 +59,8 @@ BUFFER_API_KEY = os.getenv("BUFFER_API_KEY")
 BUFFER_ORGANIZATION_ID = os.getenv("BUFFER_ORGANIZATION_ID") or "6aafc6f8778120e5ae005e89"
 # ShareMode: addToQueue | shareNext | shareNow | customScheduled
 BUFFER_SHARE_MODE = os.getenv("BUFFER_SHARE_MODE") or "addToQueue"
+
+# Video hosting — Buffer must fetch the video from a public URL.
+# Uses GitHub Releases on this repo (must be a public repo).
+GITHUB_REPO = os.getenv("GITHUB_REPOSITORY") or "oceanfarm1992-design/video-ranking-bot"
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")

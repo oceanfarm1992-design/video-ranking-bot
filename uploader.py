@@ -1,9 +1,15 @@
 import os
+import subprocess
+from datetime import datetime, timezone
+
 import requests
+
 from config import (
     BUFFER_API_KEY,
     BUFFER_ORGANIZATION_ID,
     BUFFER_SHARE_MODE,
+    GITHUB_REPO,
+    GITHUB_TOKEN,
     OUTPUT_FILE,
 )
 
@@ -113,25 +119,70 @@ def upload() -> None:
         raise RuntimeError("All Buffer posts failed — see errors above")
 
 
-def _upload_video_to_host() -> str | None:
-    """Upload video to catbox.moe — returns a permanent public URL."""
-    print("[uploader] Uploading video to file host...")
+def _github_token() -> str | None:
+    if GITHUB_TOKEN:
+        return GITHUB_TOKEN
     try:
-        with open(OUTPUT_FILE, "rb") as f:
-            resp = requests.post(
-                "https://catbox.moe/user/api.php",
-                data={"reqtype": "fileupload"},
-                files={"fileToUpload": (os.path.basename(OUTPUT_FILE), f, "video/mp4")},
-                timeout=120,
-            )
-        if resp.ok and resp.text.startswith("https://"):
-            url = resp.text.strip()
-            print(f"[uploader] Video hosted at: {url}")
-            return url
-        print(f"[uploader] File host upload failed: {resp.text[:200]}")
+        return subprocess.run(
+            ["gh", "auth", "token"],
+            capture_output=True, text=True, timeout=15, check=True,
+        ).stdout.strip() or None
+    except Exception:
         return None
+
+
+def _upload_video_to_host() -> str | None:
+    """Publish the video as a GitHub Release asset and return its public URL.
+
+    Buffer fetches the video server-side, so the host must be reachable from
+    their infrastructure. catbox.moe blocks datacenter IPs; GitHub's asset CDN
+    does not. This requires GITHUB_REPO to be a public repository.
+    """
+    token = _github_token()
+    if not token:
+        print("[uploader] No GitHub token (set GITHUB_TOKEN or run `gh auth login`)")
+        return None
+
+    tag = f"video-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}"
+    api = f"https://api.github.com/repos/{GITHUB_REPO}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+    try:
+        print(f"[uploader] Creating release {tag}...")
+        rel = requests.post(
+            f"{api}/releases",
+            headers=headers,
+            json={"tag_name": tag, "name": tag, "body": "Automated ranking video."},
+            timeout=30,
+        )
+        rel.raise_for_status()
+        release_id = rel.json()["id"]
+
+        size = os.path.getsize(OUTPUT_FILE)
+        print(f"[uploader] Uploading {size / 1_048_576:.1f} MB asset...")
+        with open(OUTPUT_FILE, "rb") as f:
+            asset = requests.post(
+                f"https://uploads.github.com/repos/{GITHUB_REPO}"
+                f"/releases/{release_id}/assets",
+                headers={**headers, "Content-Type": "video/mp4"},
+                params={"name": "ranking_video.mp4"},
+                data=f,
+                timeout=300,
+            )
+        asset.raise_for_status()
+        url = asset.json()["browser_download_url"]
+        print(f"[uploader] Video hosted at: {url}")
+        return url
     except Exception as e:
-        print(f"[uploader] File host upload error: {e}")
+        detail = getattr(e, "response", None)
+        if detail is not None:
+            print(f"[uploader] GitHub upload failed: {detail.status_code} {detail.text[:300]}")
+        else:
+            print(f"[uploader] GitHub upload failed: {e}")
         return None
 
 

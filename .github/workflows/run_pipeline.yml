@@ -12,6 +12,8 @@ jobs:
   run-pipeline:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write   # needed to publish the video as a release asset
 
     steps:
       - name: Checkout repo
@@ -44,6 +46,7 @@ jobs:
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
           REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
           REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python main.py
 
       - name: Upload output video as artifact

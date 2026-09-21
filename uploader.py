@@ -1,6 +1,11 @@
 import os
 import requests
-from config import BUFFER_API_KEY, BUFFER_ORGANIZATION_ID, OUTPUT_FILE
+from config import (
+    BUFFER_API_KEY,
+    BUFFER_ORGANIZATION_ID,
+    BUFFER_SHARE_MODE,
+    OUTPUT_FILE,
+)
 
 _GQL_URL = "https://api.buffer.com/graphql"
 
@@ -20,22 +25,28 @@ mutation CreatePost(
   $channelId: ChannelId!
   $text: String!
   $videoUrl: String!
+  $mode: ShareMode!
+  $metadata: PostInputMetaData
 ) {
   createPost(input: {
     channelId: $channelId
     text: $text
     assets: [{ video: { url: $videoUrl } }]
-    mode: shareNow
+    mode: $mode
     schedulingType: automatic
     needsApproval: false
+    metadata: $metadata
   }) {
-    ... on Post {
-      id
-      status
+    __typename
+    ... on PostActionSuccess {
+      post { id status channelService dueAt }
     }
-    ... on CoreApiError {
-      message
-    }
+    ... on InvalidInputError { message }
+    ... on UnauthorizedError { message }
+    ... on UnexpectedError { message }
+    ... on NotFoundError { message }
+    ... on LimitReachedError { message }
+    ... on RestProxyError { message code }
   }
 }
 """
@@ -47,7 +58,33 @@ _CAPTIONS = [
     "💀 These videos had us dying 😂 Top 10 countdown! #funny #fails #comedy #viral",
 ]
 
+_TITLES = [
+    "Top 10 Funniest Videos Right Now",
+    "Top 10 Funniest Clips Of The Day",
+    "Ranking The Internet's Funniest Videos",
+    "Top 10 Funny Moments Countdown",
+]
+
 _caption_index = 0
+
+
+def _build_metadata(service: str, title: str) -> dict | None:
+    """Per-channel required metadata. Buffer rejects posts without these."""
+    if service == "youtube":
+        return {
+            "youtube": {
+                "title": title[:100],
+                "categoryId": "23",  # Comedy
+                "privacy": "public",
+                "madeForKids": False,
+                "notifySubscribers": True,
+            }
+        }
+    if service == "facebook":
+        return {"facebook": {"type": "reel"}}
+    if service == "tiktok":
+        return {"tiktok": {"title": title[:150]}}
+    return None
 
 
 def upload() -> None:
@@ -70,8 +107,10 @@ def upload() -> None:
         print("[uploader] No connected channels found")
         return
 
-    for ch in channels:
-        _post_to_channel(ch, video_url)
+    succeeded = sum(_post_to_channel(ch, video_url) for ch in channels)
+    print(f"[uploader] {succeeded}/{len(channels)} channels posted")
+    if succeeded == 0:
+        raise RuntimeError("All Buffer posts failed — see errors above")
 
 
 def _upload_video_to_host() -> str | None:
@@ -109,7 +148,11 @@ def _get_channels() -> list[dict]:
             timeout=15,
         )
         resp.raise_for_status()
-        channels = resp.json().get("data", {}).get("channels", [])
+        result = resp.json()
+        if result.get("errors"):
+            msgs = "; ".join(e.get("message", "?") for e in result["errors"])
+            raise RuntimeError(f"channels query rejected: {msgs}")
+        channels = (result.get("data") or {}).get("channels") or []
         active = [c for c in channels if not c.get("isDisconnected")]
         print(f"[uploader] Found {len(active)} active channels: {[c['service'] for c in active]}")
         return active
@@ -118,9 +161,10 @@ def _get_channels() -> list[dict]:
         return []
 
 
-def _post_to_channel(channel: dict, video_url: str) -> None:
+def _post_to_channel(channel: dict, video_url: str) -> bool:
     global _caption_index
     caption = _CAPTIONS[_caption_index % len(_CAPTIONS)]
+    title = _TITLES[_caption_index % len(_TITLES)]
     _caption_index += 1
 
     headers = {
@@ -131,6 +175,8 @@ def _post_to_channel(channel: dict, video_url: str) -> None:
         "channelId": channel["id"],
         "text": caption,
         "videoUrl": video_url,
+        "mode": BUFFER_SHARE_MODE,
+        "metadata": _build_metadata(channel["service"], title),
     }
     try:
         resp = requests.post(
@@ -141,12 +187,25 @@ def _post_to_channel(channel: dict, video_url: str) -> None:
         )
         resp.raise_for_status()
         result = resp.json()
-        payload = result.get("data", {}).get("createPost", {})
-        if "message" in payload:
-            print(f"[uploader] {channel['service']} error: {payload['message']}")
-            return
-        post_id = payload.get("id", "")
-        status = payload.get("status", "")
-        print(f"[uploader] ✓ {channel['service']} ({channel['name']}) — id: {post_id or 'ok'} status: {status or 'sent'}")
+
+        if result.get("errors"):
+            msgs = "; ".join(e.get("message", "?") for e in result["errors"])
+            raise RuntimeError(f"GraphQL query rejected: {msgs}")
+
+        payload = (result.get("data") or {}).get("createPost")
+        if not payload:
+            raise RuntimeError(f"Empty createPost payload: {result}")
+
+        typename = payload.get("__typename")
+        if typename != "PostActionSuccess":
+            raise RuntimeError(f"{typename}: {payload.get('message', 'no detail')}")
+
+        post = payload["post"]
+        print(
+            f"[uploader] OK {channel['service']} ({channel['name']}) "
+            f"— id: {post['id']} status: {post['status']}"
+        )
+        return True
     except Exception as e:
-        print(f"[uploader] Failed to post to {channel['service']}: {e}")
+        print(f"[uploader] FAILED {channel['service']} ({channel['name']}): {e}")
+        return False

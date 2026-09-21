@@ -56,4 +56,6 @@ RUMBLE_MAX_FETCH = 20
 
 # Buffer
 BUFFER_API_KEY = os.getenv("BUFFER_API_KEY")
-BUFFER_ORGANIZATION_ID = os.getenv("BUFFER_ORGANIZATION_ID", "6aafc6f8778120e5ae005e89")
+BUFFER_ORGANIZATION_ID = os.getenv("BUFFER_ORGANIZATION_ID") or "6aafc6f8778120e5ae005e89"
+# ShareMode: addToQueue | shareNext | shareNow | customScheduled
+BUFFER_SHARE_MODE = os.getenv("BUFFER_SHARE_MODE") or "addToQueue"

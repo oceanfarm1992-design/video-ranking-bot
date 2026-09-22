@@ -39,9 +39,16 @@ def run():
 
     all_videos.extend(_safe_fetch("facebook", fb_fetcher.fetch))
     all_videos.extend(_safe_fetch("reddit", reddit_fetcher.fetch))
-    all_videos.extend(_safe_fetch("dailymotion", dm_fetcher.fetch))
     all_videos.extend(_safe_fetch("twitch", twitch_fetcher.fetch))
     all_videos.extend(_safe_fetch("rumble", rumble_fetcher.fetch))
+
+    # Dailymotion downloads work fine directly in CI, but home_scanner.py
+    # also caches a reserve of it into R2 - merge that in so ranking still
+    # has candidates on a run where the live fetch itself fails.
+    dailymotion_candidates = {v["id"]: v for v in _safe_fetch("dailymotion", dm_fetcher.fetch)}
+    for v in r2_cache.list_cached_videos("dailymotion"):
+        dailymotion_candidates.setdefault(v["id"], v)
+    all_videos.extend(dailymotion_candidates.values())
 
     # TikTok's own fetch needs cookies CI doesn't have (skips silently if
     # missing). home_scanner.py already fetched + cached full metadata for

@@ -2,11 +2,17 @@
 bot-checks), on a schedule via Windows Task Scheduler — no manual action
 needed.
 
-Fetches YouTube and TikTok candidates, downloads a short pre-trimmed clip
-for any not already cached, uploads to the R2 buffer, and prunes anything
-past R2_RETENTION_DAYS. main.py (running in GitHub Actions) reads from this
-buffer instead of downloading directly, which datacenter IPs get blocked
-from. TikTok also needs tiktok_cookies.txt on THIS machine, refreshed
+Fetches YouTube, TikTok, and Dailymotion candidates, downloads a short
+pre-trimmed clip for any not already cached, uploads to the R2 buffer, and
+prunes anything past R2_RETENTION_DAYS. main.py (running in GitHub Actions)
+reads from this buffer:
+  - YouTube and TikTok downloads are blocked from datacenter IPs, so R2 is
+    their only source in CI.
+  - Dailymotion downloads work fine directly in CI, but is cached here too
+    as a fallback reserve in case its live fetch or download ever fails on
+    a given scheduled run - see downloader.py's R2-first check.
+
+TikTok also needs tiktok_cookies.txt on THIS machine, refreshed
 automatically every run from your browser's live login session via
 cookie_refresh.py — since that reads a real signed-in session on your PC,
 not a bot, it isn't subject to the bot-detection that blocked the earlier
@@ -30,6 +36,7 @@ from config import CLIP_DURATION_SEC, TIKTOK_COOKIES_FILE
 from cookie_refresh import refresh_tiktok_cookies
 from fetchers import youtube as yt_fetcher
 from fetchers import tiktok as tt_fetcher
+from fetchers import dailymotion as dm_fetcher
 from ranker import is_relevant
 
 # A few seconds of margin over CLIP_DURATION_SEC so processor.py's own
@@ -118,6 +125,11 @@ def run(batches: int = 1, pause_sec: int = 120) -> None:
     print(f"  Fetched {len(tiktok_candidates)} candidates")
     candidates.extend(tiktok_candidates)
 
+    print("\n=== Fetching Dailymotion candidates ===")
+    dailymotion_candidates = dm_fetcher.fetch()
+    print(f"  Fetched {len(dailymotion_candidates)} candidates")
+    candidates.extend(dailymotion_candidates)
+
     candidates = [v for v in candidates if is_relevant(v)]
     candidates.sort(key=lambda v: v["views"], reverse=True)
     print(f"  {len(candidates)} on-theme candidates after filtering")
@@ -150,7 +162,7 @@ def run(batches: int = 1, pause_sec: int = 120) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Fill the R2 clip buffer from YouTube + TikTok."
+        description="Fill the R2 clip buffer from YouTube + TikTok + Dailymotion."
     )
     parser.add_argument(
         "--batches", type=int, default=1,

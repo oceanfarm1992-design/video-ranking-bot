@@ -9,16 +9,23 @@ def download_all(videos: list[dict]) -> list[dict]:
     return [{**v, "local_path": _download(v)} for v in videos]
 
 
-_R2_PLATFORMS = {"youtube", "tiktok"}
+# YouTube and TikTok both block yt-dlp from datacenter/CI IPs (Hetzner,
+# GitHub Actions alike) with a bot-check, so a direct download would just
+# fail - only R2 (filled by home_scanner.py from a residential IP) works.
+_CI_BLOCKED_PLATFORMS = {"youtube", "tiktok"}
 
 
 def _download(video: dict) -> str | None:
-    # YouTube and TikTok both block yt-dlp from datacenter/CI IPs (Hetzner,
-    # GitHub Actions alike) with a bot-check. home_scanner.py pre-downloads
-    # clips for these platforms from a residential IP into the R2 buffer;
-    # pull from there instead of trying (and failing) a direct download.
-    if video["platform"] in _R2_PLATFORMS:
-        return _download_from_r2(video)
+    # Check R2 first regardless of platform: home_scanner.py may have
+    # already cached this exact clip (or another instance of it re-fetched
+    # later), which is free reuse and a fallback if a platform's direct
+    # download starts failing for some other reason later.
+    path = _download_from_r2(video)
+    if path:
+        return path
+    if video["platform"] in _CI_BLOCKED_PLATFORMS:
+        print(f"[downloader] {video['platform']}_{video['id']} not found in R2 buffer")
+        return None
     return _download_direct(video)
 
 
@@ -27,7 +34,6 @@ def _download_from_r2(video: dict) -> str | None:
     local_path = str(DOWNLOADS_DIR / f"{clip_id}.mp4")
     if r2_cache.download_clip(clip_id, local_path):
         return local_path
-    print(f"[downloader] {clip_id} not found in R2 buffer")
     return None
 
 

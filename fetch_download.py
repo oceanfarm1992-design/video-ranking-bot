@@ -13,6 +13,7 @@ from fetchers import rumble as rumble_fetcher
 from ranker import rank
 from downloader import download_all
 from release_uploader import publish_clips_release
+import r2_cache
 
 
 def run() -> None:
@@ -26,6 +27,19 @@ def run() -> None:
     all_videos.extend(twitch_fetcher.fetch())
     all_videos.extend(rumble_fetcher.fetch())
     print(f"  Fetched {len(all_videos)} candidates across all platforms")
+
+    # YouTube downloads are blocked from this IP — only rank YouTube
+    # candidates that home_scanner.py has already cached in the R2 buffer,
+    # so a Top-5 slot never goes to something we can't actually download.
+    cached_ids = r2_cache.list_available_ids()
+    before = len(all_videos)
+    all_videos = [
+        v for v in all_videos
+        if v["platform"] != "youtube" or f"youtube_{v['id']}" in cached_ids
+    ]
+    dropped = before - len(all_videos)
+    if dropped:
+        print(f"  Dropped {dropped} YouTube candidates not yet cached in R2 buffer")
 
     print("\n=== Step 2: Ranking top 5 ===")
     top5 = rank(all_videos)

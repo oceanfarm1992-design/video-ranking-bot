@@ -126,3 +126,13 @@ BUFFER_SHARE_MODE = os.getenv("BUFFER_SHARE_MODE") or "shareNow"
 # Uses GitHub Releases on this repo (must be a public repo).
 GITHUB_REPO = os.getenv("GITHUB_REPOSITORY") or "oceanfarm1992-design/video-ranking-bot"
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+
+# Cloudflare R2 — rolling buffer of pre-downloaded YouTube clips. Filled by
+# home_scanner.py (run on a residential IP, which YouTube's bot-check does
+# not block), read by downloader.py (on Hetzner/CI, where it is blocked).
+R2_ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID")
+R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID")
+R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY")
+R2_BUCKET = os.getenv("R2_BUCKET") or "funny-clips-buffer"
+R2_ENDPOINT = f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com" if R2_ACCOUNT_ID else None
+R2_RETENTION_DAYS = 60

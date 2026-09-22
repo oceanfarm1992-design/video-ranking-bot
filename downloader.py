@@ -1,5 +1,6 @@
 import os
 import yt_dlp
+import r2_cache
 from config import DOWNLOADS_DIR, CLIP_DURATION_SEC
 
 
@@ -9,6 +10,25 @@ def download_all(videos: list[dict]) -> list[dict]:
 
 
 def _download(video: dict) -> str | None:
+    # YouTube blocks yt-dlp from datacenter/CI IPs (Hetzner, GitHub Actions
+    # alike) with a bot-check. home_scanner.py pre-downloads YouTube clips
+    # from a residential IP into the R2 buffer; pull from there instead of
+    # trying (and failing) a direct download.
+    if video["platform"] == "youtube":
+        return _download_from_r2(video)
+    return _download_direct(video)
+
+
+def _download_from_r2(video: dict) -> str | None:
+    clip_id = f"{video['platform']}_{video['id']}"
+    local_path = str(DOWNLOADS_DIR / f"{clip_id}.mp4")
+    if r2_cache.download_clip(clip_id, local_path):
+        return local_path
+    print(f"[downloader] {clip_id} not found in R2 buffer")
+    return None
+
+
+def _download_direct(video: dict) -> str | None:
     out_template = str(DOWNLOADS_DIR / f"{video['platform']}_{video['id']}.%(ext)s")
     captured: list[str] = []
 

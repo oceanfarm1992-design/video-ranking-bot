@@ -12,22 +12,43 @@ from uploader import upload
 import r2_cache
 
 
+def _safe_fetch(platform: str, fetch_fn) -> list[dict]:
+    """A single platform's fetcher (API quota, network, or site changes)
+    failing shouldn't take down the whole scheduled run - log it and carry
+    on with whatever the other platforms found."""
+    try:
+        return fetch_fn()
+    except Exception as e:
+        print(f"  [{platform}] fetch failed, skipping this platform: {e}")
+        return []
+
+
 def run():
     print("=== Step 1: Fetching funny videos ===")
     all_videos: list[dict] = []
-    all_videos.extend(yt_fetcher.fetch())
-    all_videos.extend(fb_fetcher.fetch())
-    all_videos.extend(reddit_fetcher.fetch())
-    all_videos.extend(dm_fetcher.fetch())
-    all_videos.extend(twitch_fetcher.fetch())
-    all_videos.extend(rumble_fetcher.fetch())
+
+    # YouTube's live fetch costs API quota and can hit the daily limit;
+    # home_scanner.py already fetched + cached full metadata for everything
+    # it pulled, so merge in the R2-cached candidates too. Ranking already
+    # gates YouTube on R2 availability below, so this keeps candidates
+    # flowing even on a day the quota is exhausted.
+    youtube_candidates = {v["id"]: v for v in _safe_fetch("youtube", yt_fetcher.fetch)}
+    for v in r2_cache.list_cached_videos("youtube"):
+        youtube_candidates.setdefault(v["id"], v)
+    all_videos.extend(youtube_candidates.values())
+
+    all_videos.extend(_safe_fetch("facebook", fb_fetcher.fetch))
+    all_videos.extend(_safe_fetch("reddit", reddit_fetcher.fetch))
+    all_videos.extend(_safe_fetch("dailymotion", dm_fetcher.fetch))
+    all_videos.extend(_safe_fetch("twitch", twitch_fetcher.fetch))
+    all_videos.extend(_safe_fetch("rumble", rumble_fetcher.fetch))
 
     # TikTok's own fetch needs cookies CI doesn't have (skips silently if
     # missing). home_scanner.py already fetched + cached full metadata for
     # every clip it pulled from a real signed-in session, so pull TikTok
     # candidates from there too, merged with a live fetch in case cookies
     # ever are configured in CI.
-    tiktok_candidates = {v["id"]: v for v in tt_fetcher.fetch()}
+    tiktok_candidates = {v["id"]: v for v in _safe_fetch("tiktok", tt_fetcher.fetch)}
     for v in r2_cache.list_cached_videos("tiktok"):
         tiktok_candidates.setdefault(v["id"], v)
     all_videos.extend(tiktok_candidates.values())

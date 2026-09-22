@@ -3,8 +3,9 @@ on a schedule via Windows Task Scheduler — no manual action needed.
 
 Fetches YouTube candidates (API — works everywhere), downloads a short
 pre-trimmed clip for any not already cached, uploads to the R2 buffer,
-and prunes anything past R2_RETENTION_DAYS. Hetzner's fetch_download.py
-reads from this buffer instead of downloading from YouTube directly.
+and prunes anything past R2_RETENTION_DAYS. main.py (running in GitHub
+Actions) reads from this buffer instead of downloading from YouTube
+directly, which is blocked from datacenter IPs.
 """
 import os
 import sys

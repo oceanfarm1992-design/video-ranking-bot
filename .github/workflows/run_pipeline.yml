@@ -1,10 +1,10 @@
 name: Ranking Video Pipeline
 
 on:
-  # Scheduled runs moved to a cron job on the Hetzner VPS (see deploy/) —
-  # GitHub-hosted runner IPs are blocked by YouTube's bot-check, dropping
-  # 4 of 5 clips per run. Keeping workflow_dispatch only, for manual
-  # testing without risking a duplicate scheduled run alongside the VPS.
+  schedule:
+    - cron: "0 8  * * *"   # 08:00 UTC — noon Dubai
+    - cron: "0 15 * * *"   # 15:00 UTC — 7pm Dubai
+    - cron: "0 21 * * *"   # 21:00 UTC — 1am Dubai
   workflow_dispatch:
 
 jobs:
@@ -29,8 +29,10 @@ jobs:
       - name: Install system dependencies (ffmpeg)
         run: sudo apt-get install -y ffmpeg
 
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt
+      - name: Install CPU-only PyTorch, then the rest of requirements
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
 
       - name: Write TikTok cookies (if secret is set)
         if: ${{ env.TIKTOK_COOKIES != '' }}
@@ -46,6 +48,9 @@ jobs:
           REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
           REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: python main.py
 
       - name: Upload output video as artifact

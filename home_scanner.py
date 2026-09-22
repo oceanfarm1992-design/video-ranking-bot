@@ -12,9 +12,11 @@ cookie_refresh.py — since that reads a real signed-in session on your PC,
 not a bot, it isn't subject to the bot-detection that blocked the earlier
 VPS login flow.
 """
+import argparse
 import os
 import sys
 import tempfile
+import time
 
 import yt_dlp
 
@@ -77,7 +79,33 @@ def _download_short_clip(video: dict, out_dir: str) -> str | None:
         return None
 
 
-def run() -> None:
+def _download_batch(candidates: list[dict], have: set[str]) -> int:
+    new_count = 0
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        for v in candidates:
+            if new_count >= _MAX_DOWNLOADS_PER_RUN:
+                print(f"  Reached {_MAX_DOWNLOADS_PER_RUN}-clip cap for this batch")
+                break
+            clip_id = f"{v['platform']}_{v['id']}"
+            if clip_id in have:
+                continue
+            path = _download_short_clip(v, tmp_dir)
+            if not path:
+                continue
+            r2_cache.upload_clip(v, path)
+            os.remove(path)
+            have.add(clip_id)
+            new_count += 1
+            print(f"  + cached {clip_id}: {v['title'][:60]}")
+    return new_count
+
+
+def run(batches: int = 1, pause_sec: int = 120) -> None:
+    """Fetch candidates once, then download up to `batches` batches of
+    _MAX_DOWNLOADS_PER_RUN clips each from that same pool. Only the fetch
+    step costs YouTube API quota - downloading is yt-dlp against your own
+    residential IP, so extra batches let you fill the R2 buffer over a long
+    PC-on session without spending any additional quota."""
     print("=== Refreshing TikTok cookies from browser ===")
     refresh_tiktok_cookies()
 
@@ -98,24 +126,20 @@ def run() -> None:
     have = r2_cache.list_available_ids()
     print(f"  {len(have)} clips already in buffer")
 
-    new_count = 0
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        for v in candidates:
-            if new_count >= _MAX_DOWNLOADS_PER_RUN:
-                print(f"  Reached {_MAX_DOWNLOADS_PER_RUN}-clip cap for this run")
-                break
-            clip_id = f"{v['platform']}_{v['id']}"
-            if clip_id in have:
-                continue
-            path = _download_short_clip(v, tmp_dir)
-            if not path:
-                continue
-            r2_cache.upload_clip(v, path)
-            os.remove(path)
-            new_count += 1
-            print(f"  + cached {clip_id}: {v['title'][:60]}")
+    total_new = 0
+    for batch_num in range(1, batches + 1):
+        print(f"\n=== Download batch {batch_num}/{batches} ===")
+        new_count = _download_batch(candidates, have)
+        total_new += new_count
+        print(f"  Added {new_count} new clip(s) this batch")
+        if new_count == 0:
+            print("  No new candidates left from this fetch — stopping early")
+            break
+        if batch_num < batches:
+            print(f"  Pausing {pause_sec}s before next batch...")
+            time.sleep(pause_sec)
 
-    print(f"\n=== Added {new_count} new clip(s) to the buffer ===")
+    print(f"\n=== Added {total_new} new clip(s) to the buffer total ===")
 
     print("\n=== Pruning clips older than retention window ===")
     removed = r2_cache.prune_old()
@@ -125,4 +149,19 @@ def run() -> None:
 
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser(
+        description="Fill the R2 clip buffer from YouTube + TikTok."
+    )
+    parser.add_argument(
+        "--batches", type=int, default=1,
+        help="Download batches from a single fetch (default: 1, matches the "
+             "normal scheduled-task run). Raise this for an extended PC-on "
+             "session — it costs zero extra YouTube API quota since only "
+             "the fetch step uses the API.",
+    )
+    parser.add_argument(
+        "--pause", type=int, default=120,
+        help="Seconds to pause between batches (default: 120).",
+    )
+    args = parser.parse_args()
+    run(batches=args.batches, pause_sec=args.pause)

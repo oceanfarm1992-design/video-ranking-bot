@@ -1,0 +1,9 @@
+# Lightweight deps for the Hetzner fetch/rank/download phase only.
+# Demucs/torch/MoviePy are NOT needed here - that processing happens
+# in GitHub Actions (see requirements.txt), triggered by the release
+# this script publishes.
+google-api-python-client>=2.0.0
+python-dotenv>=1.0.0
+yt-dlp>=2024.1.0
+requests>=2.31.0
+curl_cffi>=0.6.0

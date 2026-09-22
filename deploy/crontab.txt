@@ -1,0 +1,6 @@
+# Ranking Video Pipeline — 3x/day (08:00, 15:00, 21:00 UTC)
+# Install with: crontab /opt/video-ranking-bot/deploy/crontab.txt
+# Verify VPS clock is UTC first: timedatectl
+0 8  * * * /bin/bash /opt/video-ranking-bot/deploy/run_pipeline.sh
+0 15 * * * /bin/bash /opt/video-ranking-bot/deploy/run_pipeline.sh
+0 21 * * * /bin/bash /opt/video-ranking-bot/deploy/run_pipeline.sh

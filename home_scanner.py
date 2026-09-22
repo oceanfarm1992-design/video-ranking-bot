@@ -48,6 +48,12 @@ _DOWNLOAD_SECONDS = CLIP_DURATION_SEC + 3
 # Windows Task Scheduler) well ahead of what 3 runs/day x 5 clips needs.
 _MAX_DOWNLOADS_PER_RUN = 15
 
+_FETCHERS = {
+    "youtube": yt_fetcher.fetch,
+    "tiktok": tt_fetcher.fetch,
+    "dailymotion": dm_fetcher.fetch,
+}
+
 
 def _download_short_clip(video: dict, out_dir: str) -> str | None:
     out_template = os.path.join(out_dir, f"{video['platform']}_{video['id']}.%(ext)s")
@@ -107,28 +113,26 @@ def _download_batch(candidates: list[dict], have: set[str]) -> int:
     return new_count
 
 
-def run(batches: int = 1, pause_sec: int = 120) -> None:
-    """Fetch candidates once, then download up to `batches` batches of
-    _MAX_DOWNLOADS_PER_RUN clips each from that same pool. Only the fetch
-    step costs YouTube API quota - downloading is yt-dlp against your own
-    residential IP, so extra batches let you fill the R2 buffer over a long
-    PC-on session without spending any additional quota."""
-    print("=== Refreshing TikTok cookies from browser ===")
-    refresh_tiktok_cookies()
+def run(platforms: list[str], batches: int = 1, pause_sec: int = 120) -> None:
+    """Fetch candidates once (for the given platforms only), then download
+    up to `batches` batches of _MAX_DOWNLOADS_PER_RUN clips each from that
+    same pool. Only YouTube's fetch step costs API quota - downloading is
+    yt-dlp against your own residential IP, so extra batches let you fill
+    the R2 buffer over a long PC-on session without spending extra quota.
 
-    print("\n=== Fetching YouTube candidates ===")
-    candidates = yt_fetcher.fetch()
-    print(f"  Fetched {len(candidates)} candidates")
+    Scan one platform at a time (--platform) to schedule each on its own
+    Task Scheduler interval, e.g. YouTube less often (quota-limited),
+    Dailymotion as often as you like (no quota, not IP-blocked)."""
+    if "tiktok" in platforms:
+        print("=== Refreshing TikTok cookies from browser ===")
+        refresh_tiktok_cookies()
 
-    print("\n=== Fetching TikTok candidates ===")
-    tiktok_candidates = tt_fetcher.fetch()
-    print(f"  Fetched {len(tiktok_candidates)} candidates")
-    candidates.extend(tiktok_candidates)
-
-    print("\n=== Fetching Dailymotion candidates ===")
-    dailymotion_candidates = dm_fetcher.fetch()
-    print(f"  Fetched {len(dailymotion_candidates)} candidates")
-    candidates.extend(dailymotion_candidates)
+    candidates: list[dict] = []
+    for platform in platforms:
+        print(f"\n=== Fetching {platform} candidates ===")
+        fetched = _FETCHERS[platform]()
+        print(f"  Fetched {len(fetched)} candidates")
+        candidates.extend(fetched)
 
     candidates = [v for v in candidates if is_relevant(v)]
     candidates.sort(key=lambda v: v["views"], reverse=True)
@@ -165,6 +169,13 @@ if __name__ == "__main__":
         description="Fill the R2 clip buffer from YouTube + TikTok + Dailymotion."
     )
     parser.add_argument(
+        "--platform", choices=["youtube", "tiktok", "dailymotion", "all"], default="all",
+        help="Which platform to scan (default: all three in one run). Pick "
+             "one to give it its own Task Scheduler entry/interval instead "
+             "- e.g. YouTube less often (API quota), Dailymotion as often "
+             "as you like (no quota, not IP-blocked).",
+    )
+    parser.add_argument(
         "--batches", type=int, default=1,
         help="Download batches from a single fetch (default: 1, matches the "
              "normal scheduled-task run). Raise this for an extended PC-on "
@@ -176,4 +187,5 @@ if __name__ == "__main__":
         help="Seconds to pause between batches (default: 120).",
     )
     args = parser.parse_args()
-    run(batches=args.batches, pause_sec=args.pause)
+    selected_platforms = list(_FETCHERS) if args.platform == "all" else [args.platform]
+    run(platforms=selected_platforms, batches=args.batches, pause_sec=args.pause)

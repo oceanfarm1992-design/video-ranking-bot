@@ -4,8 +4,10 @@ from config import (
     RANKINGS_FILE,
     EXCLUDE_TITLE_KEYWORDS,
     INCLUDE_TITLE_KEYWORDS,
+    REPOST_COOLDOWN_DAYS,
 )
 from seeds_analyzer import load_viral_profile, viral_boost
+import r2_cache
 
 
 def is_relevant(video: dict) -> bool:
@@ -24,6 +26,16 @@ def rank(all_videos: list[dict]) -> list[dict]:
     dropped = before - len(all_videos)
     if dropped:
         print(f"[ranker] Filtered out {dropped} non-comedy candidates by title")
+
+    recently_posted = r2_cache.list_recently_posted(REPOST_COOLDOWN_DAYS)
+    before = len(all_videos)
+    all_videos = [
+        v for v in all_videos
+        if f"{v['platform']}_{v['id']}" not in recently_posted
+    ]
+    dropped = before - len(all_videos)
+    if dropped:
+        print(f"[ranker] Filtered out {dropped} candidates already posted within {REPOST_COOLDOWN_DAYS} days")
 
     profile = load_viral_profile()
 

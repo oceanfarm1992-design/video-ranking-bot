@@ -63,6 +63,12 @@ def run():
     print("\n=== Step 5: Uploading to Buffer ===")
     upload()
 
+    # upload() raises if every channel failed, so reaching here means the
+    # video actually went out - keep these clips out of the next ranking
+    # for a while instead of letting them win again with just a new rank.
+    for v in top10:
+        r2_cache.mark_posted(f"{v['platform']}_{v['id']}")
+
     print("\n✓ Pipeline complete.")
 
 

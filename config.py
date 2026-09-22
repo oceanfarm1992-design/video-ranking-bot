@@ -17,6 +17,11 @@ TIKTOK_BRIDGE_SCRIPT = str(BASE_DIR / "tiktok_bridge.js")
 TOP_N = 5
 CLIP_DURATION_SEC = 13  # 5 clips x 13s = 65s total, inside Reels' 90s cap
 
+# A clip already featured in a posted ranking video is excluded from
+# ranking for this long afterward, so the same top-scoring clips don't
+# just get reposted with new ranks every run.
+REPOST_COOLDOWN_DAYS = 30
+
 # Three focused comedy categories, shared across fetchers that take a
 # search query (YouTube, Dailymotion). Replaces vague single-word queries
 # like "hilarious" that pulled in unrelated long-form content.

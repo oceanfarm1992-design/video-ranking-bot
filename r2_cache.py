@@ -95,6 +95,32 @@ def list_available_ids() -> set[str]:
     return ids
 
 
+def mark_posted(clip_id: str) -> None:
+    """Record that a clip was included in a posted ranking video, so
+    list_recently_posted() can keep it out of future rankings for a while."""
+    _s3().put_object(
+        Bucket=R2_BUCKET,
+        Key=f"posted/{clip_id}.json",
+        Body=json.dumps({"posted_at": datetime.now(timezone.utc).isoformat()}).encode("utf-8"),
+        ContentType="application/json",
+    )
+
+
+def list_recently_posted(within_days: int) -> set[str]:
+    """clip_ids (platform_id) posted within the last `within_days` days."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=within_days)
+    ids: set[str] = set()
+    s3 = _s3()
+    paginator = s3.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=R2_BUCKET, Prefix="posted/"):
+        for obj in page.get("Contents", []):
+            body = s3.get_object(Bucket=R2_BUCKET, Key=obj["Key"])["Body"].read()
+            posted_at = datetime.fromisoformat(json.loads(body)["posted_at"])
+            if posted_at >= cutoff:
+                ids.add(obj["Key"].removeprefix("posted/").removesuffix(".json"))
+    return ids
+
+
 def list_cached_videos(platform: str) -> list[dict]:
     """Full video metadata for every cached clip on one platform.
 

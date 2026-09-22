@@ -7,9 +7,15 @@ and prunes anything past R2_RETENTION_DAYS. Hetzner's fetch_download.py
 reads from this buffer instead of downloading from YouTube directly.
 """
 import os
+import sys
 import tempfile
 
 import yt_dlp
+
+# Video titles routinely contain emoji; Windows' default console encoding
+# (cp1252) can't print them and would otherwise crash mid-run.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 import r2_cache
 from config import CLIP_DURATION_SEC

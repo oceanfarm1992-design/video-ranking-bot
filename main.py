@@ -16,27 +16,38 @@ def run():
     print("=== Step 1: Fetching funny videos ===")
     all_videos: list[dict] = []
     all_videos.extend(yt_fetcher.fetch())
-    all_videos.extend(tt_fetcher.fetch())
     all_videos.extend(fb_fetcher.fetch())
     all_videos.extend(reddit_fetcher.fetch())
     all_videos.extend(dm_fetcher.fetch())
     all_videos.extend(twitch_fetcher.fetch())
     all_videos.extend(rumble_fetcher.fetch())
+
+    # TikTok's own fetch needs cookies CI doesn't have (skips silently if
+    # missing). home_scanner.py already fetched + cached full metadata for
+    # every clip it pulled from a real signed-in session, so pull TikTok
+    # candidates from there too, merged with a live fetch in case cookies
+    # ever are configured in CI.
+    tiktok_candidates = {v["id"]: v for v in tt_fetcher.fetch()}
+    for v in r2_cache.list_cached_videos("tiktok"):
+        tiktok_candidates.setdefault(v["id"], v)
+    all_videos.extend(tiktok_candidates.values())
+
     print(f"  Fetched {len(all_videos)} candidates across all platforms")
 
-    # YouTube downloads are blocked from datacenter IPs (GitHub Actions
-    # included) - only rank YouTube candidates home_scanner.py has already
-    # cached in the R2 buffer, so a Top-N slot never goes to something we
-    # can't actually download.
+    # YouTube and TikTok downloads are blocked from datacenter IPs (GitHub
+    # Actions included) - only rank candidates from those platforms that
+    # home_scanner.py has already cached in the R2 buffer, so a Top-N slot
+    # never goes to something we can't actually download.
     cached_ids = r2_cache.list_available_ids()
     before = len(all_videos)
     all_videos = [
         v for v in all_videos
-        if v["platform"] != "youtube" or f"youtube_{v['id']}" in cached_ids
+        if v["platform"] not in ("youtube", "tiktok")
+        or f"{v['platform']}_{v['id']}" in cached_ids
     ]
     dropped = before - len(all_videos)
     if dropped:
-        print(f"  Dropped {dropped} YouTube candidates not yet cached in R2 buffer")
+        print(f"  Dropped {dropped} YouTube/TikTok candidates not yet cached in R2 buffer")
 
     print("\n=== Step 2: Ranking top 10 ===")
     top10 = rank(all_videos)

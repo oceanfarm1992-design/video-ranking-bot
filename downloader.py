@@ -9,12 +9,15 @@ def download_all(videos: list[dict]) -> list[dict]:
     return [{**v, "local_path": _download(v)} for v in videos]
 
 
+_R2_PLATFORMS = {"youtube", "tiktok"}
+
+
 def _download(video: dict) -> str | None:
-    # YouTube blocks yt-dlp from datacenter/CI IPs (Hetzner, GitHub Actions
-    # alike) with a bot-check. home_scanner.py pre-downloads YouTube clips
-    # from a residential IP into the R2 buffer; pull from there instead of
-    # trying (and failing) a direct download.
-    if video["platform"] == "youtube":
+    # YouTube and TikTok both block yt-dlp from datacenter/CI IPs (Hetzner,
+    # GitHub Actions alike) with a bot-check. home_scanner.py pre-downloads
+    # clips for these platforms from a residential IP into the R2 buffer;
+    # pull from there instead of trying (and failing) a direct download.
+    if video["platform"] in _R2_PLATFORMS:
         return _download_from_r2(video)
     return _download_direct(video)
 

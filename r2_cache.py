@@ -95,6 +95,24 @@ def list_available_ids() -> set[str]:
     return ids
 
 
+def list_cached_videos(platform: str) -> list[dict]:
+    """Full video metadata for every cached clip on one platform.
+
+    Used for platforms (e.g. TikTok) whose fetch step itself needs cookies
+    that CI doesn't have — home_scanner.py already fetched and cached this
+    metadata from a real signed-in session, so CI can rank it without
+    re-fetching.
+    """
+    videos: list[dict] = []
+    s3 = _s3()
+    paginator = s3.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=R2_BUCKET, Prefix=f"meta/{platform}_"):
+        for obj in page.get("Contents", []):
+            body = s3.get_object(Bucket=R2_BUCKET, Key=obj["Key"])["Body"].read()
+            videos.append(json.loads(body))
+    return videos
+
+
 def prune_old(retention_days: int = R2_RETENTION_DAYS) -> int:
     """Delete clips (and their metadata) older than retention_days. Returns count removed."""
     cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)

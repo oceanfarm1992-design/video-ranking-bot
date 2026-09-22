@@ -1,11 +1,15 @@
-"""Runs on a home PC (residential IP, not blocked by YouTube's bot-check),
-on a schedule via Windows Task Scheduler — no manual action needed.
+"""Runs on a home PC (residential IP, not blocked by YouTube's or TikTok's
+bot-checks), on a schedule via Windows Task Scheduler — no manual action
+needed.
 
-Fetches YouTube candidates (API — works everywhere), downloads a short
-pre-trimmed clip for any not already cached, uploads to the R2 buffer,
-and prunes anything past R2_RETENTION_DAYS. main.py (running in GitHub
-Actions) reads from this buffer instead of downloading from YouTube
-directly, which is blocked from datacenter IPs.
+Fetches YouTube and TikTok candidates, downloads a short pre-trimmed clip
+for any not already cached, uploads to the R2 buffer, and prunes anything
+past R2_RETENTION_DAYS. main.py (running in GitHub Actions) reads from this
+buffer instead of downloading directly, which datacenter IPs get blocked
+from. TikTok also needs tiktok_cookies.txt on THIS machine (exported once
+from your own logged-in browser) — since this runs as a real signed-in
+session on your PC, not a bot, that's a normal export, not the VPS login
+flow that TikTok's own bot-detection rejected.
 """
 import os
 import sys
@@ -19,8 +23,9 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 import r2_cache
-from config import CLIP_DURATION_SEC
+from config import CLIP_DURATION_SEC, TIKTOK_COOKIES_FILE
 from fetchers import youtube as yt_fetcher
+from fetchers import tiktok as tt_fetcher
 from ranker import is_relevant
 
 # A few seconds of margin over CLIP_DURATION_SEC so processor.py's own
@@ -51,6 +56,8 @@ def _download_short_clip(video: dict, out_dir: str) -> str | None:
         "download_ranges": yt_dlp.utils.download_range_func(None, [(0, _DOWNLOAD_SECONDS)]),
         "force_keyframes_at_cuts": True,
     }
+    if video["platform"] == "tiktok" and os.path.exists(TIKTOK_COOKIES_FILE):
+        opts["cookiefile"] = TIKTOK_COOKIES_FILE
 
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -72,6 +79,11 @@ def run() -> None:
     print("=== Fetching YouTube candidates ===")
     candidates = yt_fetcher.fetch()
     print(f"  Fetched {len(candidates)} candidates")
+
+    print("\n=== Fetching TikTok candidates ===")
+    tiktok_candidates = tt_fetcher.fetch()
+    print(f"  Fetched {len(tiktok_candidates)} candidates")
+    candidates.extend(tiktok_candidates)
 
     candidates = [v for v in candidates if is_relevant(v)]
     candidates.sort(key=lambda v: v["views"], reverse=True)

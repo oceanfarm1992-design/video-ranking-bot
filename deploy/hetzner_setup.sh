@@ -32,6 +32,14 @@ cd "$APP_DIR"
 echo "== Creating virtualenv and installing dependencies =="
 python3 -m venv venv
 ./venv/bin/pip install --upgrade pip
+
+echo "== Installing CPU-only PyTorch (this VPS has no GPU) =="
+# Installing torch first, from the CPU-only wheel index, means demucs's
+# torch>=X requirement below is already satisfied and pip won't also
+# pull the default CUDA build (~5GB of unused nvidia-* packages).
+export TMPDIR=/var/tmp/pipbuild
+mkdir -p "$TMPDIR"
+./venv/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
 ./venv/bin/pip install -r requirements.txt
 
 echo "== Next steps =="

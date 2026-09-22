@@ -20,10 +20,16 @@ if hasattr(sys.stdout, "reconfigure"):
 import r2_cache
 from config import CLIP_DURATION_SEC
 from fetchers import youtube as yt_fetcher
+from ranker import is_relevant
 
 # A few seconds of margin over CLIP_DURATION_SEC so processor.py's own
 # trim always has enough source material regardless of small variance.
 _DOWNLOAD_SECONDS = CLIP_DURATION_SEC + 3
+
+# Cap so a single scheduled run finishes in minutes, not hours. The buffer
+# still builds up steadily across repeated runs (every few hours via
+# Windows Task Scheduler) well ahead of what 3 runs/day x 5 clips needs.
+_MAX_DOWNLOADS_PER_RUN = 15
 
 
 def _download_short_clip(video: dict, out_dir: str) -> str | None:
@@ -66,6 +72,10 @@ def run() -> None:
     candidates = yt_fetcher.fetch()
     print(f"  Fetched {len(candidates)} candidates")
 
+    candidates = [v for v in candidates if is_relevant(v)]
+    candidates.sort(key=lambda v: v["views"], reverse=True)
+    print(f"  {len(candidates)} on-theme candidates after filtering")
+
     print("\n=== Checking R2 buffer for what's already cached ===")
     have = r2_cache.list_available_ids()
     print(f"  {len(have)} clips already in buffer")
@@ -73,6 +83,9 @@ def run() -> None:
     new_count = 0
     with tempfile.TemporaryDirectory() as tmp_dir:
         for v in candidates:
+            if new_count >= _MAX_DOWNLOADS_PER_RUN:
+                print(f"  Reached {_MAX_DOWNLOADS_PER_RUN}-clip cap for this run")
+                break
             clip_id = f"{v['platform']}_{v['id']}"
             if clip_id in have:
                 continue

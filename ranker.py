@@ -8,7 +8,10 @@ from config import (
 from seeds_analyzer import load_viral_profile, viral_boost
 
 
-def _is_relevant(video: dict) -> bool:
+def is_relevant(video: dict) -> bool:
+    """Title must match an on-theme keyword and avoid disqualifying ones.
+    Shared with home_scanner.py so it doesn't waste downloads/R2 storage
+    on candidates that would just get filtered out here anyway."""
     title = video.get("title", "").lower()
     if any(kw in title for kw in EXCLUDE_TITLE_KEYWORDS):
         return False
@@ -17,7 +20,7 @@ def _is_relevant(video: dict) -> bool:
 
 def rank(all_videos: list[dict]) -> list[dict]:
     before = len(all_videos)
-    all_videos = [v for v in all_videos if _is_relevant(v)]
+    all_videos = [v for v in all_videos if is_relevant(v)]
     dropped = before - len(all_videos)
     if dropped:
         print(f"[ranker] Filtered out {dropped} non-comedy candidates by title")

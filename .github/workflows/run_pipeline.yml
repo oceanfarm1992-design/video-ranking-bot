@@ -13,6 +13,8 @@ jobs:
     timeout-minutes: 45   # Demucs (torch install + CPU inference per clip) adds real time
     permissions:
       contents: write   # needed to publish the video as a release asset
+    env:
+      TIKTOK_COOKIES: ${{ secrets.TIKTOK_COOKIES }}
 
     steps:
       - name: Checkout repo
@@ -31,9 +33,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Write TikTok cookies (if secret is set)
-        if: ${{ secrets.TIKTOK_COOKIES != '' }}
-        env:
-          TIKTOK_COOKIES: ${{ secrets.TIKTOK_COOKIES }}
+        if: ${{ env.TIKTOK_COOKIES != '' }}
         run: printf '%s' "$TIKTOK_COOKIES" > tiktok_cookies.txt
 
       - name: Run pipeline

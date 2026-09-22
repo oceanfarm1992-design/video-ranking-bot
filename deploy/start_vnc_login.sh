@@ -20,12 +20,14 @@ sleep 2
 
 echo "== Starting x11vnc (localhost only, port 5900) =="
 pkill x11vnc 2>/dev/null || true
-x11vnc -display "${DISPLAY}" -localhost -nopw -forever -quiet &
+VNC_PASS=$(openssl rand -hex 8)
+echo "VNC password: ${VNC_PASS}"
+x11vnc -display "${DISPLAY}" -localhost -passwd "${VNC_PASS}" -forever -quiet &
 sleep 2
 
 echo "== Starting noVNC (localhost only, port 6080) =="
 pkill -f websockify 2>/dev/null || true
-websockify --web=/usr/share/novnc 6080 localhost:5900 &
+websockify --web=/usr/share/novnc 127.0.0.1:6080 localhost:5900 &
 sleep 2
 
 echo "== Launching Chromium at TikTok login =="

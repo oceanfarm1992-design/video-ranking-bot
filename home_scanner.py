@@ -6,10 +6,11 @@ Fetches YouTube and TikTok candidates, downloads a short pre-trimmed clip
 for any not already cached, uploads to the R2 buffer, and prunes anything
 past R2_RETENTION_DAYS. main.py (running in GitHub Actions) reads from this
 buffer instead of downloading directly, which datacenter IPs get blocked
-from. TikTok also needs tiktok_cookies.txt on THIS machine (exported once
-from your own logged-in browser) — since this runs as a real signed-in
-session on your PC, not a bot, that's a normal export, not the VPS login
-flow that TikTok's own bot-detection rejected.
+from. TikTok also needs tiktok_cookies.txt on THIS machine, refreshed
+automatically every run from your browser's live login session via
+cookie_refresh.py — since that reads a real signed-in session on your PC,
+not a bot, it isn't subject to the bot-detection that blocked the earlier
+VPS login flow.
 """
 import os
 import sys
@@ -24,6 +25,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 import r2_cache
 from config import CLIP_DURATION_SEC, TIKTOK_COOKIES_FILE
+from cookie_refresh import refresh_tiktok_cookies
 from fetchers import youtube as yt_fetcher
 from fetchers import tiktok as tt_fetcher
 from ranker import is_relevant
@@ -76,7 +78,10 @@ def _download_short_clip(video: dict, out_dir: str) -> str | None:
 
 
 def run() -> None:
-    print("=== Fetching YouTube candidates ===")
+    print("=== Refreshing TikTok cookies from browser ===")
+    refresh_tiktok_cookies()
+
+    print("\n=== Fetching YouTube candidates ===")
     candidates = yt_fetcher.fetch()
     print(f"  Fetched {len(candidates)} candidates")
 

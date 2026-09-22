@@ -4,3 +4,7 @@
 0 8  * * * /bin/bash /opt/video-ranking-bot/deploy/run_pipeline.sh
 0 15 * * * /bin/bash /opt/video-ranking-bot/deploy/run_pipeline.sh
 0 21 * * * /bin/bash /opt/video-ranking-bot/deploy/run_pipeline.sh
+
+# Keep the TikTok login session warm + re-export fresh cookies.txt daily.
+# Requires the one-time manual login via deploy/start_vnc_login.sh first.
+0 5 * * * /opt/video-ranking-bot/venv/bin/python /opt/video-ranking-bot/deploy/tiktok_refresh_cookies.py >> /opt/video-ranking-bot/logs/tiktok_refresh.log 2>&1

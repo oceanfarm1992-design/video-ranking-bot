@@ -1,0 +1,24 @@
+# Paste Facebook funny video URLs here, one per line.
+# Lines starting with # are ignored.
+# Example:
+# https://www.facebook.com/watch?v=123456789
+# https://www.facebook.com/reel/123456789
+https://www.facebook.com/share/r/1LZFAxY4AV/
+https://www.facebook.com/share/r/19RFgvm6nC/
+https://www.facebook.com/share/r/1Z1zPs5DVd/
+https://www.facebook.com/share/r/1FjhsxAi7u/
+https://www.facebook.com/share/r/1DgkXT3mgn/
+https://www.facebook.com/groups/1521922591888573/permalink/2195599027854256/
+https://www.facebook.com/reel/4351706821825671/
+https://www.facebook.com/share/r/1Sn3vRwBMU/
+https://www.facebook.com/share/r/18Zcahtw7X/
+https://www.facebook.com/share/r/1DQ1dqPBJ4/
+https://www.facebook.com/share/v/14rPkCnPJBW/
+https://www.facebook.com/share/v/1FAmRS2KTL/
+https://www.facebook.com/share/r/14q2AcrCn9P/
+https://www.facebook.com/share/r/1DA7eVtXcZ/
+https://www.facebook.com/share/v/1LoXRPcawR/
+https://www.facebook.com/share/v/1YVf3YHNsr/
+https://www.facebook.com/share/v/1FMRqWRCyy/
+https://www.facebook.com/share/r/1Dcuy6CV8M/
+https://www.facebook.com/share/v/14py1VLgRZP/

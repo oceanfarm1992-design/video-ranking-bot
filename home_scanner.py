@@ -74,6 +74,12 @@ def _download_short_clip(video: dict, out_dir: str) -> str | None:
         "match_filter": yt_dlp.utils.match_filter_func("duration < 600"),
         "download_ranges": yt_dlp.utils.download_range_func(None, [(0, _DOWNLOAD_SECONDS)]),
         "force_keyframes_at_cuts": True,
+        # A flaky/flagged proxy IP can otherwise hang for ~85s per candidate
+        # (seen live: a 20-minute CI job got through only ~15 candidates and
+        # cached nothing before being killed). Fail fast instead so a bad
+        # candidate doesn't eat the whole run's time budget.
+        "socket_timeout": 10,
+        "retries": 1,
     }
     if video["platform"] == "tiktok" and os.path.exists(TIKTOK_COOKIES_FILE):
         opts["cookiefile"] = TIKTOK_COOKIES_FILE

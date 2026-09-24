@@ -1,0 +1,47 @@
+name: Scan YouTube for R2 Buffer
+
+# YouTube downloads are blocked from datacenter IPs, but routing just the
+# download step through the DataImpulse residential proxy bypasses that -
+# metadata fetching still uses the free YouTube Data API. This means this
+# no longer needs to run on the home PC.
+#
+# Only 3-4 runs/day fit within the YouTube API's default daily quota
+# (shared with the 3 scheduled run_pipeline.yml posts) - don't lower the
+# cron interval below every ~4 hours without requesting a quota increase.
+on:
+  schedule:
+    - cron: "0 */4 * * *"   # every 4 hours
+  workflow_dispatch:
+
+jobs:
+  scan-youtube:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install system dependencies (ffmpeg)
+        run: sudo apt-get install -y ffmpeg
+
+      - name: Install CPU-only PyTorch, then the rest of requirements
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+
+      - name: Scan YouTube
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          DATAIMPULSE_LOGIN: ${{ secrets.DATAIMPULSE_LOGIN }}
+          DATAIMPULSE_PASSWORD: ${{ secrets.DATAIMPULSE_PASSWORD }}
+        run: python home_scanner.py --platform youtube

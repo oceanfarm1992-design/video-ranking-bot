@@ -1,22 +1,19 @@
-"""Runs on a home PC (residential IP, not blocked by YouTube's or TikTok's
-bot-checks), on a schedule via Windows Task Scheduler — no manual action
-needed.
-
-Fetches YouTube, TikTok, and Dailymotion candidates, downloads a short
+"""Fetches YouTube, TikTok, and Dailymotion candidates, downloads a short
 pre-trimmed clip for any not already cached, uploads to the R2 buffer, and
 prunes anything past R2_RETENTION_DAYS. main.py (running in GitHub Actions)
 reads from this buffer:
-  - YouTube and TikTok downloads are blocked from datacenter IPs, so R2 is
-    their only source in CI.
-  - Dailymotion downloads work fine directly in CI, but is cached here too
-    as a fallback reserve in case its live fetch or download ever fails on
-    a given scheduled run - see downloader.py's R2-first check.
+  - YouTube and TikTok downloads are blocked from datacenter IPs. Routing
+    just the download (not the metadata fetch) through the DATAIMPULSE_*
+    residential proxy - see config.py - bypasses that, so this can now run
+    anywhere, including GitHub Actions, without needing the home PC.
+  - Dailymotion isn't IP-blocked at all; it's cached here too purely as a
+    fallback reserve - see downloader.py's R2-first check.
 
-TikTok also needs tiktok_cookies.txt on THIS machine, refreshed
-automatically every run from your browser's live login session via
-cookie_refresh.py — since that reads a real signed-in session on your PC,
-not a bot, it isn't subject to the bot-detection that blocked the earlier
-VPS login flow.
+TikTok additionally needs tiktok_cookies.txt, refreshed from a real
+signed-in browser session via cookie_refresh.py - that part still only
+works interactively on a machine with Edge running (see cookie_refresh.py).
+Without a fresh cookie file present, TikTok fetching just contributes 0
+candidates that run rather than failing.
 """
 import argparse
 import os
@@ -32,7 +29,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 import r2_cache
-from config import CLIP_DURATION_SEC, TIKTOK_COOKIES_FILE
+from config import CLIP_DURATION_SEC, TIKTOK_COOKIES_FILE, DATAIMPULSE_PROXY_URL
 from cookie_refresh import refresh_tiktok_cookies
 from fetchers import youtube as yt_fetcher
 from fetchers import tiktok as tt_fetcher
@@ -53,6 +50,11 @@ _FETCHERS = {
     "tiktok": tt_fetcher.fetch,
     "dailymotion": dm_fetcher.fetch,
 }
+
+# YouTube and TikTok block downloads from datacenter IPs; routing just the
+# download through a residential proxy (not the metadata fetch, which stays
+# on the free direct APIs) lets this run from anywhere, including CI.
+_PROXY_PLATFORMS = {"youtube", "tiktok"}
 
 
 def _download_short_clip(video: dict, out_dir: str) -> str | None:
@@ -75,6 +77,8 @@ def _download_short_clip(video: dict, out_dir: str) -> str | None:
     }
     if video["platform"] == "tiktok" and os.path.exists(TIKTOK_COOKIES_FILE):
         opts["cookiefile"] = TIKTOK_COOKIES_FILE
+    if video["platform"] in _PROXY_PLATFORMS and DATAIMPULSE_PROXY_URL:
+        opts["proxy"] = DATAIMPULSE_PROXY_URL
 
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:

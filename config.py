@@ -14,6 +14,20 @@ OUTPUT_FILE = str(BASE_DIR / "final_ranking_video.mp4")
 FACEBOOK_URLS_FILE = str(BASE_DIR / "facebook_urls.txt")
 TIKTOK_BRIDGE_SCRIPT = str(BASE_DIR / "tiktok_bridge.js")
 
+# Residential proxy (DataImpulse) — only used for the yt-dlp *download* step
+# on platforms that block datacenter IPs (YouTube, TikTok). Metadata fetching
+# stays on the free direct APIs, so this only spends proxy bandwidth on the
+# actual clip downloads, not on search/discovery traffic.
+DATAIMPULSE_HOST = os.getenv("DATAIMPULSE_HOST") or "gw.dataimpulse.com"
+DATAIMPULSE_PORT = os.getenv("DATAIMPULSE_PORT") or "823"
+DATAIMPULSE_LOGIN = os.getenv("DATAIMPULSE_LOGIN")
+DATAIMPULSE_PASSWORD = os.getenv("DATAIMPULSE_PASSWORD")
+DATAIMPULSE_PROXY_URL = (
+    f"http://{DATAIMPULSE_LOGIN}:{DATAIMPULSE_PASSWORD}@{DATAIMPULSE_HOST}:{DATAIMPULSE_PORT}"
+    if DATAIMPULSE_LOGIN and DATAIMPULSE_PASSWORD
+    else None
+)
+
 TOP_N = 5
 CLIP_DURATION_SEC = 13  # 5 clips x 13s = 65s total, inside Reels' 90s cap
 

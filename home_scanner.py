@@ -17,6 +17,7 @@ candidates that run rather than failing.
 """
 import argparse
 import os
+import random
 import sys
 import tempfile
 import time
@@ -29,7 +30,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 import r2_cache
-from config import CLIP_DURATION_SEC, TIKTOK_COOKIES_FILE, DATAIMPULSE_PROXY_URL
+from config import CLIP_DURATION_SEC, TIKTOK_COOKIES_FILE, dataimpulse_proxy_url
 from cookie_refresh import refresh_tiktok_cookies
 from fetchers import youtube as yt_fetcher
 from fetchers import tiktok as tt_fetcher
@@ -57,7 +58,11 @@ _FETCHERS = {
 _PROXY_PLATFORMS = {"youtube", "tiktok"}
 
 
-def _download_short_clip(video: dict, out_dir: str) -> str | None:
+def _new_session_id() -> str:
+    return str(random.randint(100_000, 999_999))
+
+
+def _download_short_clip(video: dict, out_dir: str, proxy_url: str | None) -> str | None:
     out_template = os.path.join(out_dir, f"{video['platform']}_{video['id']}.%(ext)s")
     captured: list[str] = []
 
@@ -83,8 +88,8 @@ def _download_short_clip(video: dict, out_dir: str) -> str | None:
     }
     if video["platform"] == "tiktok" and os.path.exists(TIKTOK_COOKIES_FILE):
         opts["cookiefile"] = TIKTOK_COOKIES_FILE
-    if video["platform"] in _PROXY_PLATFORMS and DATAIMPULSE_PROXY_URL:
-        opts["proxy"] = DATAIMPULSE_PROXY_URL
+    if video["platform"] in _PROXY_PLATFORMS and proxy_url:
+        opts["proxy"] = proxy_url
 
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -102,7 +107,12 @@ def _download_short_clip(video: dict, out_dir: str) -> str | None:
         return None
 
 
-def _download_batch(candidates: list[dict], have: set[str]) -> int:
+def _download_batch(candidates: list[dict], have: set[str], session_id: str) -> tuple[int, str]:
+    """Download up to _MAX_DOWNLOADS_PER_RUN new clips. `session_id` pins
+    proxy platforms to one sticky IP (DataImpulse's pool is mixed quality -
+    some IPs get bot-blocked, most don't) - keep reusing it while it's
+    working, and mint a fresh one the moment a download fails, so a single
+    good IP gets used for as many downloads as possible before rotating."""
     new_count = 0
     with tempfile.TemporaryDirectory() as tmp_dir:
         for v in candidates:
@@ -112,15 +122,20 @@ def _download_batch(candidates: list[dict], have: set[str]) -> int:
             clip_id = f"{v['platform']}_{v['id']}"
             if clip_id in have:
                 continue
-            path = _download_short_clip(v, tmp_dir)
+            proxy_url = (
+                dataimpulse_proxy_url(session_id) if v["platform"] in _PROXY_PLATFORMS else None
+            )
+            path = _download_short_clip(v, tmp_dir, proxy_url)
             if not path:
+                if v["platform"] in _PROXY_PLATFORMS:
+                    session_id = _new_session_id()
                 continue
             r2_cache.upload_clip(v, path)
             os.remove(path)
             have.add(clip_id)
             new_count += 1
             print(f"  + cached {clip_id}: {v['title'][:60]}")
-    return new_count
+    return new_count, session_id
 
 
 def run(platforms: list[str], batches: int = 1, pause_sec: int = 120) -> None:
@@ -153,9 +168,10 @@ def run(platforms: list[str], batches: int = 1, pause_sec: int = 120) -> None:
     print(f"  {len(have)} clips already in buffer")
 
     total_new = 0
+    session_id = _new_session_id()
     for batch_num in range(1, batches + 1):
-        print(f"\n=== Download batch {batch_num}/{batches} ===")
-        new_count = _download_batch(candidates, have)
+        print(f"\n=== Download batch {batch_num}/{batches} (proxy session {session_id}) ===")
+        new_count, session_id = _download_batch(candidates, have, session_id)
         total_new += new_count
         print(f"  Added {new_count} new clip(s) this batch")
         if new_count == 0:

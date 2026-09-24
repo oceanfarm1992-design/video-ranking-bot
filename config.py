@@ -22,11 +22,20 @@ DATAIMPULSE_HOST = os.getenv("DATAIMPULSE_HOST") or "gw.dataimpulse.com"
 DATAIMPULSE_PORT = os.getenv("DATAIMPULSE_PORT") or "823"
 DATAIMPULSE_LOGIN = os.getenv("DATAIMPULSE_LOGIN")
 DATAIMPULSE_PASSWORD = os.getenv("DATAIMPULSE_PASSWORD")
-DATAIMPULSE_PROXY_URL = (
-    f"http://{DATAIMPULSE_LOGIN}:{DATAIMPULSE_PASSWORD}@{DATAIMPULSE_HOST}:{DATAIMPULSE_PORT}"
-    if DATAIMPULSE_LOGIN and DATAIMPULSE_PASSWORD
-    else None
-)
+
+
+def dataimpulse_proxy_url(session_id: str) -> str | None:
+    """A DataImpulse proxy URL pinned to one sticky session (same exit IP
+    for ~30 min) via the `sessid` parameter. The pool is mixed quality —
+    some IPs get bot-blocked by YouTube, most don't — so callers should
+    keep reusing a session_id that's working and only mint a new one after
+    a failure, instead of rolling the dice on a fresh IP every request."""
+    if not (DATAIMPULSE_LOGIN and DATAIMPULSE_PASSWORD):
+        return None
+    return (
+        f"http://{DATAIMPULSE_LOGIN}__sessid.{session_id}:{DATAIMPULSE_PASSWORD}"
+        f"@{DATAIMPULSE_HOST}:{DATAIMPULSE_PORT}"
+    )
 
 TOP_N = 5
 CLIP_DURATION_SEC = 13  # 5 clips x 13s = 65s total, inside Reels' 90s cap

@@ -107,6 +107,13 @@ def _download_short_clip(video: dict, out_dir: str, proxy_url: str | None) -> st
         return None
 
 
+# Verified live: firing proxy requests back-to-back with no delay gets a
+# video bot-blocked; the exact same video succeeds moments later through a
+# fresh session after a short pause. Burst timing itself is a detection
+# signal, independent of which IP or session is used.
+_PROXY_REQUEST_PAUSE_SEC = 4
+
+
 def _download_batch(candidates: list[dict], have: set[str], session_id: str) -> tuple[int, str]:
     """Download up to _MAX_DOWNLOADS_PER_RUN new clips. `session_id` pins
     proxy platforms to one sticky IP (DataImpulse's pool is mixed quality -
@@ -114,6 +121,7 @@ def _download_batch(candidates: list[dict], have: set[str], session_id: str) -> 
     working, and mint a fresh one the moment a download fails, so a single
     good IP gets used for as many downloads as possible before rotating."""
     new_count = 0
+    made_proxy_request = False
     with tempfile.TemporaryDirectory() as tmp_dir:
         for v in candidates:
             if new_count >= _MAX_DOWNLOADS_PER_RUN:
@@ -122,12 +130,15 @@ def _download_batch(candidates: list[dict], have: set[str], session_id: str) -> 
             clip_id = f"{v['platform']}_{v['id']}"
             if clip_id in have:
                 continue
-            proxy_url = (
-                dataimpulse_proxy_url(session_id) if v["platform"] in _PROXY_PLATFORMS else None
-            )
+            is_proxy_platform = v["platform"] in _PROXY_PLATFORMS
+            if is_proxy_platform:
+                if made_proxy_request:
+                    time.sleep(_PROXY_REQUEST_PAUSE_SEC)
+                made_proxy_request = True
+            proxy_url = dataimpulse_proxy_url(session_id) if is_proxy_platform else None
             path = _download_short_clip(v, tmp_dir, proxy_url)
             if not path:
-                if v["platform"] in _PROXY_PLATFORMS:
+                if is_proxy_platform:
                     session_id = _new_session_id()
                 continue
             r2_cache.upload_clip(v, path)
